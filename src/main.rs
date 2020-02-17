@@ -13,7 +13,7 @@ fn main() {
 
     while running {
         // Run chip8 cycle
-        
+
         // If chip8 drawflag is set draw graphics
 
         // Set chip8 keys
