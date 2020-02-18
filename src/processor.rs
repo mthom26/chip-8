@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 const RAM: usize = 4096;
 const VRAM: usize = 2048;
 
@@ -42,7 +44,7 @@ impl Processor {
         byte1 << 8 | byte2
     }
 
-    fn execute_opcode(&mut self, opcode: u16, nibbles: (u8, u8, u8, u8)) {
+    fn execute_opcode(&mut self, opcode: u16, nibbles: (u8, usize, usize, u8)) {
         let (op_major, x, y, op_minor) = nibbles;
 
         match op_major {
@@ -67,7 +69,7 @@ impl Processor {
                 0x05 => self.op_8xy5(x, y),
                 0x06 => self.op_8xy6(x),
                 0x07 => self.op_8xy7(x, y),
-                0x0e => self.op_8xye(x, y),
+                0x0e => self.op_8xye(x),
                 _ => unreachable!(),
             },
             0x0a => self.op_annn(opcode),
@@ -98,76 +100,76 @@ impl Processor {
     }
 
     // Skips the next instruction if VX equals NN
-    fn op_3xnn(&mut self, x: u8, opcode: u16) {
+    fn op_3xnn(&mut self, x: usize, opcode: u16) {
         let nn = (opcode & 0x00ff) as u8;
-        match self.v[x as usize] == nn {
+        match self.v[x] == nn {
             true => self.pc += 4,
             false => self.pc += 2,
         }
     }
 
     // Skips the next instruction if VX doesn't equal NN
-    fn op_4xnn(&mut self, x: u8, opcode: u16) {
+    fn op_4xnn(&mut self, x: usize, opcode: u16) {
         let nn = (opcode & 0x00ff) as u8;
-        match self.v[x as usize] == nn {
+        match self.v[x] == nn {
             true => self.pc += 2,
             false => self.pc += 4,
         }
     }
 
     // Skips the next instruction if VX equals VY
-    fn op_5xy0(&mut self, x: u8, y: u8) {
-        match self.v[x as usize] == self.v[y as usize] {
+    fn op_5xy0(&mut self, x: usize, y: usize) {
+        match self.v[x] == self.v[y] {
             true => self.pc += 4,
             false => self.pc += 2,
         }
     }
 
     // Sets VX to NN
-    fn op_6xnn(&mut self, x: u8, opcode: u16) {
+    fn op_6xnn(&mut self, x: usize, opcode: u16) {
         let nn = (opcode & 0x00ff) as u8;
-        self.v[x as usize] = nn;
+        self.v[x] = nn;
         self.pc += 2;
     }
 
     // Adds NN to VX
-    fn op_7xnn(&mut self, x: u8, opcode: u16) {
+    fn op_7xnn(&mut self, x: usize, opcode: u16) {
         let nn = (opcode & 0x00ff) as u8;
-        self.v[x as usize] += nn;
+        self.v[x] += nn;
         self.pc += 2;
     }
 
     // Sets VX to the value of VY
-    fn op_8xy0(&mut self, x: u8, y: u8) {
-        self.v[x as usize] = self.v[y as usize];
+    fn op_8xy0(&mut self, x: usize, y: usize) {
+        self.v[x] = self.v[y];
         self.pc += 2;
     }
 
     // Sets VX to VX or VY
-    fn op_8xy1(&mut self, x: u8, y: u8) {
-        self.v[x as usize] |= self.v[y as usize];
+    fn op_8xy1(&mut self, x: usize, y: usize) {
+        self.v[x] |= self.v[y];
         self.pc += 2;
     }
 
     // Sets VX to VX and VY
-    fn op_8xy2(&mut self, x: u8, y: u8) {
-        self.v[x as usize] &= self.v[y as usize];
+    fn op_8xy2(&mut self, x: usize, y: usize) {
+        self.v[x] &= self.v[y];
         self.pc += 2;
     }
 
     // Sets VX to VX xor VY
-    fn op_8xy3(&mut self, x: u8, y: u8) {
-        self.v[x as usize] ^= self.v[y as usize];
+    fn op_8xy3(&mut self, x: usize, y: usize) {
+        self.v[x] ^= self.v[y];
         self.pc += 2;
     }
 
     // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't
-    fn op_8xy4(&mut self, x: u8, y: u8) {
-        let vx = self.v[x as usize] as u16;
-        let vy = self.v[y as usize] as u16;
+    fn op_8xy4(&mut self, x: usize, y: usize) {
+        let vx = self.v[x] as u16;
+        let vy = self.v[y] as u16;
         let val = vx + vy;
 
-        self.v[x as usize] = val as u8;
+        self.v[x] = val as u8;
         self.v[0x0f] = match val {
             0x00..=0xff => 0,
             _ => 1, // Set carry flag
@@ -176,43 +178,43 @@ impl Processor {
     }
 
     // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't
-    fn op_8xy5(&mut self, x: u8, y: u8) {
-        self.v[0x0f] = match self.v[x as usize] > self.v[y as usize] {
+    fn op_8xy5(&mut self, x: usize, y: usize) {
+        self.v[0x0f] = match self.v[x] > self.v[y] {
             true => 0,
             false => 1,
         };
-        self.v[x as usize] = self.v[x as usize].wrapping_sub(self.v[y as usize]);
+        self.v[x] = self.v[x].wrapping_sub(self.v[y]);
         self.pc += 2;
     }
 
     // Stores the least significant bit of VX in VF and then shifts VX to the right by 1
-    fn op_8xy6(&mut self, x: u8) {
-        self.v[0x0f] = self.v[x as usize] & 0x01;
-        self.v[x as usize] >>= 1;
+    fn op_8xy6(&mut self, x: usize) {
+        self.v[0x0f] = self.v[x] & 0x01;
+        self.v[x] >>= 1;
         self.pc += 2;
     }
 
     // Sets VX to VY minus VX
-    fn op_8xy7(&mut self, x: u8, y: u8) {
-        self.v[0x0f] = match self.v[x as usize] <= self.v[y as usize] {
+    fn op_8xy7(&mut self, x: usize, y: usize) {
+        self.v[0x0f] = match self.v[x] <= self.v[y] {
             true => 0,
             false => 1,
         };
-        self.v[x as usize] = self.v[y as usize].wrapping_sub(self.v[x as usize]);
+        self.v[x] = self.v[y].wrapping_sub(self.v[x]);
         self.pc += 2;
     }
 
     // Stores the most significant bit of VX in VF and then shifts VX to the left by 1
-    fn op_8xye(&mut self, x: u8, y: u8) {
-        self.v[0x0f] = self.v[x as usize] & 0b10000000;
+    fn op_8xye(&mut self, x: usize) {
+        self.v[0x0f] = self.v[x] & 0b10000000;
         self.v[0x0f] >>= 7;
-        self.v[x as usize] <<= 1;
+        self.v[x] <<= 1;
         self.pc += 2;
     }
 
     // Skips the next instruction if VX doesn't equal VY
-    fn op_9xy0(&mut self, x: u8, y: u8) {
-        match self.v[x as usize] != self.v[y as usize] {
+    fn op_9xy0(&mut self, x: usize, y: usize) {
+        match self.v[x] != self.v[y] {
             true => self.pc += 4,
             false => self.pc += 2,
         }
@@ -237,10 +239,10 @@ impl Processor {
 // /------- byte 1 -------\  /------- byte 2 -------\
 // /----n1----||----n2----\  /----n3----||----n4----\
 // / op_major ||     x    \  /    y     || op_minor \
-fn decode_opcode(opcode: u16) -> (u8, u8, u8, u8) {
+fn decode_opcode(opcode: u16) -> (u8, usize, usize, u8) {
     let op_major = ((opcode & 0xf000) >> 12) as u8;
-    let x = ((opcode & 0x0f00) >> 8) as u8;
-    let y = ((opcode & 0x00f0) >> 4) as u8;
+    let x = ((opcode & 0x0f00) >> 8) as usize;
+    let y = ((opcode & 0x00f0) >> 4) as usize;
     let op_minor = (opcode & 0x000f) as u8;
 
     (op_major, x, y, op_minor)
