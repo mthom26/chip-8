@@ -15,6 +15,9 @@ pub struct Processor {
     sp: usize,
 
     keys: [bool; 16],
+
+    delay_timer: u8,
+    sound_timer: u8,
 }
 
 impl Processor {
@@ -28,6 +31,8 @@ impl Processor {
             stack: [0; 16],
             sp: 0,
             keys: [false; 16],
+            delay_timer: 0,
+            sound_timer: 0,
         }
     }
 
@@ -231,6 +236,81 @@ impl Processor {
         let mut nnn = opcode & 0x0fff;
         nnn += self.v[0x00] as u16;
         self.pc = nnn as usize;
+    }
+
+    // Sets VX to the result of a bitwise and operation on a random number and NN
+    fn op_cxnn(&mut self, x: usize) {
+        // TODO
+    }
+
+    // Draw sprite
+    fn op_dxyn(&mut self, x: usize, y: usize) {
+        // TODO
+    }
+
+    // Skips the next instruction if the key stored in VX is pressed
+    fn op_ex9e(&mut self, x: usize) {
+        // TODO
+    }
+
+    // Skips the next instruction if the key stored in VX isn't pressed
+    fn op_exa1(&mut self, x: usize) {
+        // TODO
+    }
+
+    // Sets VX to the value of the delay timer
+    fn op_fx07(&mut self, x: usize) {
+        self.v[x] = self.delay_timer;
+        self.pc += 2;
+    }
+
+    // A key press is awaited, and then stored in VX
+    fn op_fx0a(&mut self, x: usize) {
+        // TODO
+    }
+
+    // Sets the delay timer to VX
+    fn op_fx15(&mut self, x: usize) {
+        self.delay_timer = self.v[x];
+        self.pc += 2;
+    }
+
+    // Sets the sound timer to VX
+    fn op_fx18(&mut self, x: usize) {
+        self.sound_timer = self.v[x];
+        self.pc += 2;
+    }
+
+    // Adds VX to I
+    fn op_fx1e(&mut self, x: usize) {
+        self.idxr += self.v[x] as u16;
+        match self.idxr {
+            0x000..=0xfff => self.v[0x0f] = 0,
+            _ => self.v[0x0f] = 1,
+        }
+        self.pc += 2;
+    }
+
+    // Sets I to the location of the sprite for the character in VX
+    fn op_fx29(&mut self, x: usize) {
+        // TODO
+    }
+
+    // Stores the binary-coded decimal representation of VX, with the most
+    // significant of three digits at the address in I, the middle digit at I
+    // plus 1, and the least significant digit at I plus 2
+    fn op_fx33(&mut self, x: usize) {
+        // TODO
+    }
+
+    // Stores V0 to VX (including VX) in memory starting at address I
+    fn op_fx55(&mut self, x: usize) {
+        // TODO
+    }
+
+    // Fills V0 to VX (including VX) with values from memory starting at address I
+    fn op_fx65(&mut self, x: usize) {
+        // TODO
     }
 }
 
