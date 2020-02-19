@@ -4,18 +4,21 @@ const RAM: usize = 4096;
 const VRAM: usize = 2048;
 
 pub struct Processor {
+    // Registers and indexes
     v: [u8; 16],
     idxr: u16,
     pc: usize,
-
+    // Memory
     ram: [u8; RAM],
     vram: [bool; VRAM],
-
+    // Stack
     stack: [usize; 16],
     sp: usize,
-
+    // Keypad and input
     keys: [bool; 16],
-
+    waiting_for_key: bool,
+    key_register: usize,
+    // Timers
     delay_timer: u8,
     sound_timer: u8,
 }
@@ -31,15 +34,30 @@ impl Processor {
             stack: [0; 16],
             sp: 0,
             keys: [false; 16],
+            waiting_for_key: false,
+            key_register: 0,
             delay_timer: 0,
             sound_timer: 0,
         }
     }
 
-    pub fn run_cycle(&mut self) {
-        let opcode = self.fetch_opcode();
-        let nibbles = decode_opcode(opcode);
-        self.execute_opcode(opcode, nibbles);
+    pub fn run_cycle(&mut self, keys: [bool; 16]) {
+        self.keys = keys;
+
+        if self.waiting_for_key {
+            // Wait for a key press
+            for (i, &key) in self.keys.iter().enumerate() {
+                if key {
+                    self.waiting_for_key = false;
+                    self.v[self.key_register] = i as u8;
+                    break;
+                }
+            }
+        } else {
+            let opcode = self.fetch_opcode();
+            let nibbles = decode_opcode(opcode);
+            self.execute_opcode(opcode, nibbles);
+        }
     }
 
     fn fetch_opcode(&mut self) -> u16 {
@@ -77,7 +95,28 @@ impl Processor {
                 0x0e => self.op_8xye(x),
                 _ => unreachable!(),
             },
+            0x09 => self.op_9xy0(x, y),
             0x0a => self.op_annn(opcode),
+            0x0b => self.op_bnnn(opcode),
+            0x0c => self.op_cxnn(x),
+            0x0d => self.op_dxyn(x, y, op_minor),
+            0x0e => match op_minor {
+                0x0e => self.op_ex9e(x),
+                0x01 => self.op_exa1(x),
+                _ => unreachable!(),
+            },
+            0x0f => match op_minor {
+                0x07 => self.op_fx07(x),
+                0x0a => self.op_fx0a(x),
+                0x05 => {
+                    // Here there are three op_minor codes to deal with, annoying...
+                }
+                0x08 => self.op_fx18(x),
+                0x0e => self.op_fx1e(x),
+                0x09 => self.op_fx29(x),
+                0x03 => self.op_fx33(x),
+                _ => unreachable!(),
+            },
             _ => unimplemented!(),
         }
     }
@@ -244,18 +283,24 @@ impl Processor {
     }
 
     // Draw sprite
-    fn op_dxyn(&mut self, x: usize, y: usize) {
+    fn op_dxyn(&mut self, x: usize, y: usize, n: u8) {
         // TODO
     }
 
     // Skips the next instruction if the key stored in VX is pressed
     fn op_ex9e(&mut self, x: usize) {
-        // TODO
+        match self.keys[self.v[x] as usize] {
+            true => self.pc += 4,
+            false => self.pc += 2,
+        }
     }
 
     // Skips the next instruction if the key stored in VX isn't pressed
     fn op_exa1(&mut self, x: usize) {
-        // TODO
+        match self.keys[self.v[x] as usize] {
+            true => self.pc += 2,
+            false => self.pc += 4,
+        }
     }
 
     // Sets VX to the value of the delay timer
@@ -266,7 +311,9 @@ impl Processor {
 
     // A key press is awaited, and then stored in VX
     fn op_fx0a(&mut self, x: usize) {
-        // TODO
+        self.waiting_for_key = true; // Pause execution
+        self.key_register = x; // The register for the new key press to be stored
+        self.pc += 2;
     }
 
     // Sets the delay timer to VX
@@ -332,13 +379,21 @@ fn decode_opcode(opcode: u16) -> (u8, usize, usize, u8) {
 mod tests {
     use crate::processor::Processor;
 
+    // Convenience variables to pass input states into the processor on each cycle
+    const KEYS: [bool; 16] = [false; 16];
+    #[rustfmt::skip]
+    const KEYS_3: [bool;16] = [
+        false, false, false, true, false, false, false, false,
+        false, false, false, false, false, false, false, false,
+    ];
+
     #[test]
     fn op_1nnn() {
         let mut cpu = Processor::initialize();
         cpu.ram[0x200] = 0x1a;
         cpu.ram[0x201] = 0xaa;
 
-        cpu.run_cycle();
+        cpu.run_cycle(KEYS);
         assert_eq!(cpu.pc, 0xaaa);
     }
 
@@ -348,7 +403,7 @@ mod tests {
         cpu.ram[0x200] = 0x25;
         cpu.ram[0x201] = 0x55;
 
-        cpu.run_cycle();
+        cpu.run_cycle(KEYS);
         assert_eq!(cpu.pc, 0x555);
         assert_eq!(cpu.stack[0], 0x202);
     }
@@ -359,7 +414,34 @@ mod tests {
         cpu.ram[0x200] = 0xa1;
         cpu.ram[0x201] = 0x23;
 
-        cpu.run_cycle();
+        cpu.run_cycle(KEYS);
         assert_eq!(cpu.idxr, 0x123);
+    }
+
+    #[test]
+    fn wait_for_key_pres() {
+        let mut cpu = Processor::initialize();
+        cpu.ram[0x200] = 0xf5;
+        cpu.ram[0x201] = 0x0a;
+        cpu.ram[0x202] = 0x1a;
+        cpu.ram[0x203] = 0xaa;
+
+        cpu.run_cycle(KEYS);
+        assert_eq!(cpu.waiting_for_key, true);
+        assert_eq!(cpu.key_register, 5);
+        assert_eq!(cpu.pc, 0x202);
+
+        cpu.run_cycle(KEYS); // waiting on input
+        assert_eq!(cpu.waiting_for_key, true);
+        assert_eq!(cpu.key_register, 5);
+
+        cpu.run_cycle(KEYS_3); // Input passed
+        assert_eq!(cpu.waiting_for_key, false);
+        assert_eq!(cpu.key_register, 5);
+        assert_eq!(cpu.v[cpu.key_register], 3); // Check correct key was stored
+
+        cpu.run_cycle(KEYS); // Run next instruction
+        assert_eq!(cpu.waiting_for_key, false);
+        assert_eq!(cpu.pc, 0xaaa);
     }
 }
