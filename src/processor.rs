@@ -11,6 +11,7 @@ pub struct Processor {
     // Memory
     ram: [u8; RAM],
     vram: [bool; VRAM],
+    draw_flag: bool,
     // Stack
     stack: [usize; 16],
     sp: usize,
@@ -31,6 +32,7 @@ impl Processor {
             pc: 0x200,
             ram: [0; RAM],
             vram: [false; VRAM],
+            draw_flag: false,
             stack: [0; 16],
             sp: 0,
             keys: [false; 16],
@@ -127,12 +129,17 @@ impl Processor {
 
     // Clear screen
     fn op_00e0(&mut self) {
-        // TODO
+        for i in 0..VRAM {
+            self.vram[i] = false;
+        }
+        self.draw_flag = true;
+        self.pc += 2;
     }
 
     // Return
     fn op_00ee(&mut self) {
-        // TODO
+        self.sp -= 1;
+        self.pc = self.stack[self.sp];
     }
 
     // Jump to address at `nnn`
@@ -351,7 +358,10 @@ impl Processor {
     // significant of three digits at the address in I, the middle digit at I
     // plus 1, and the least significant digit at I plus 2
     fn op_fx33(&mut self, x: usize) {
-        // TODO
+        self.ram[self.idxr as usize] = self.v[x] / 100;
+        self.ram[self.idxr as usize + 1] = (self.v[x] % 100) / 10;
+        self.ram[self.idxr as usize + 2] = self.v[x] % 10;
+        self.pc += 2;
     }
 
     // Stores V0 to VX (including VX) in memory starting at address I
@@ -483,5 +493,19 @@ mod tests {
         cpu.run_cycle(KEYS);
         let expected: [u8; 16] = [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0, 0, 0, 0, 0];
         assert_eq!(cpu.v, expected);
+    }
+
+    #[test]
+    fn op_fx33() {
+        let mut cpu = Processor::initialize();
+        cpu.ram[0x200] = 0xf2;
+        cpu.ram[0x201] = 0x33;
+        cpu.v[2] = 123;
+        cpu.idxr = 0x500;
+
+        cpu.run_cycle(KEYS);
+        assert_eq!(cpu.ram[0x500], 1);
+        assert_eq!(cpu.ram[0x501], 2);
+        assert_eq!(cpu.ram[0x502], 3);
     }
 }
