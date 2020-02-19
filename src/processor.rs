@@ -108,9 +108,13 @@ impl Processor {
             0x0f => match op_minor {
                 0x07 => self.op_fx07(x),
                 0x0a => self.op_fx0a(x),
-                0x05 => {
+                0x05 => match y {
                     // Here there are three op_minor codes to deal with, annoying...
-                }
+                    0x01 => self.op_fx15(x),
+                    0x05 => self.op_fx55(x),
+                    0x06 => self.op_fx65(x),
+                    _ => unreachable!(),
+                },
                 0x08 => self.op_fx18(x),
                 0x0e => self.op_fx1e(x),
                 0x09 => self.op_fx29(x),
@@ -352,12 +356,18 @@ impl Processor {
 
     // Stores V0 to VX (including VX) in memory starting at address I
     fn op_fx55(&mut self, x: usize) {
-        // TODO
+        for i in 0..=x {
+            self.ram[self.idxr as usize + i] = self.v[i];
+        }
+        self.pc += 2;
     }
 
     // Fills V0 to VX (including VX) with values from memory starting at address I
     fn op_fx65(&mut self, x: usize) {
-        // TODO
+        for i in 0..=x {
+            self.v[i] = self.ram[self.idxr as usize + i];
+        }
+        self.pc += 2;
     }
 }
 
@@ -443,5 +453,35 @@ mod tests {
         cpu.run_cycle(KEYS); // Run next instruction
         assert_eq!(cpu.waiting_for_key, false);
         assert_eq!(cpu.pc, 0xaaa);
+    }
+
+    #[test]
+    fn ram_write() {
+        let mut cpu = Processor::initialize();
+        for i in 0..16 {
+            cpu.v[i] = 7;
+        }
+        cpu.idxr = 0x300;
+        cpu.ram[0x200] = 0xff;
+        cpu.ram[0x201] = 0x55;
+
+        cpu.run_cycle(KEYS);
+        let expected: [u8; 16] = [7; 16];
+        assert_eq!(cpu.ram[0x300..0x310], expected);
+    }
+
+    #[test]
+    fn ram_read() {
+        let mut cpu = Processor::initialize();
+        for i in 0..10 {
+            cpu.ram[0x300 + i] = 7;
+        }
+        cpu.idxr = 0x300;
+        cpu.ram[0x200] = 0xfa;
+        cpu.ram[0x201] = 0x65;
+
+        cpu.run_cycle(KEYS);
+        let expected: [u8; 16] = [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0, 0, 0, 0, 0];
+        assert_eq!(cpu.v, expected);
     }
 }
