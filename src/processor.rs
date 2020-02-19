@@ -1,7 +1,11 @@
 #![allow(dead_code)]
+use rand::Rng;
 
 const RAM: usize = 4096;
 const VRAM: usize = 2048;
+
+const WIDTH: usize = 64;
+const HEIGHT: usize = 32;
 
 pub struct Processor {
     // Registers and indexes
@@ -10,7 +14,7 @@ pub struct Processor {
     pc: usize,
     // Memory
     ram: [u8; RAM],
-    vram: [bool; VRAM],
+    vram: [u8; VRAM],
     draw_flag: bool,
     // Stack
     stack: [usize; 16],
@@ -31,7 +35,7 @@ impl Processor {
             idxr: 0,
             pc: 0x200,
             ram: [0; RAM],
-            vram: [false; VRAM],
+            vram: [0; VRAM],
             draw_flag: false,
             stack: [0; 16],
             sp: 0,
@@ -100,7 +104,7 @@ impl Processor {
             0x09 => self.op_9xy0(x, y),
             0x0a => self.op_annn(opcode),
             0x0b => self.op_bnnn(opcode),
-            0x0c => self.op_cxnn(x),
+            0x0c => self.op_cxnn(x, opcode),
             0x0d => self.op_dxyn(x, y, op_minor),
             0x0e => match op_minor {
                 0x0e => self.op_ex9e(x),
@@ -130,7 +134,7 @@ impl Processor {
     // Clear screen
     fn op_00e0(&mut self) {
         for i in 0..VRAM {
-            self.vram[i] = false;
+            self.vram[i] = 0;
         }
         self.draw_flag = true;
         self.pc += 2;
@@ -289,13 +293,29 @@ impl Processor {
     }
 
     // Sets VX to the result of a bitwise and operation on a random number and NN
-    fn op_cxnn(&mut self, x: usize) {
-        // TODO
+    fn op_cxnn(&mut self, x: usize, opcode: u16) {
+        let random_num = rand::thread_rng().gen::<u8>();
+        self.v[x] = random_num & (opcode & 0x00ff) as u8;
+        self.pc += 2;
     }
 
-    // Draw sprite
+    // Draw sprite - TODO test this actually works...
     fn op_dxyn(&mut self, x: usize, y: usize, n: u8) {
-        // TODO
+        self.v[0x0f] = 0;
+        for row in 0..n as usize {
+            let data = self.ram[self.idxr as usize + row] as usize;
+            for col in 0..8 as usize {
+                let vram_pixel = self.vram[x + col + ((y + row) * WIDTH)];
+                let new_pixel = data >> (7 - col) & 0x01;
+                // Check for collision
+                if new_pixel > 0 && vram_pixel > 0 {
+                    self.v[0x0f] = 1;
+                }
+                self.vram[x + col + ((y + row) * WIDTH)] = new_pixel as u8;
+            }
+        }
+        self.draw_flag = true;
+        self.pc += 2;
     }
 
     // Skips the next instruction if the key stored in VX is pressed
