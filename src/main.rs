@@ -1,5 +1,6 @@
 mod processor;
 use processor::Processor;
+mod font;
 
 fn main() {
     // Initialize graphics context

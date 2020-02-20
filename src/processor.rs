@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 use rand::Rng;
 
+use crate::font::FONT_STANDARD;
+
 const RAM: usize = 4096;
 const VRAM: usize = 2048;
 
@@ -30,11 +32,17 @@ pub struct Processor {
 
 impl Processor {
     pub fn initialize() -> Processor {
+        let mut ram = [0; RAM];
+        // Load internal font to ram
+        for (i, byte) in FONT_STANDARD.iter().enumerate() {
+            ram[i] = *byte;
+        }
+
         Processor {
             v: [0; 16],
             idxr: 0,
             pc: 0x200,
-            ram: [0; RAM],
+            ram,
             vram: [0; VRAM],
             draw_flag: false,
             stack: [0; 16],
@@ -373,8 +381,10 @@ impl Processor {
     }
 
     // Sets I to the location of the sprite for the character in VX
+    // Sprites are assumed to start at 0x0000 in ram and are 5 bytes long
     fn op_fx29(&mut self, x: usize) {
-        // TODO
+        self.idxr = self.v[x] as u16 * 5;
+        self.pc += 2;
     }
 
     // Stores the binary-coded decimal representation of VX, with the most
@@ -420,6 +430,7 @@ fn decode_opcode(opcode: u16) -> (u8, usize, usize, u8) {
 
 #[cfg(test)]
 mod tests {
+    use crate::font::FONT_STANDARD;
     use crate::processor::Processor;
 
     // Convenience variables to pass input states into the processor on each cycle
@@ -530,5 +541,14 @@ mod tests {
         assert_eq!(cpu.ram[0x500], 1);
         assert_eq!(cpu.ram[0x501], 2);
         assert_eq!(cpu.ram[0x502], 3);
+    }
+
+    #[test]
+    fn font_load() {
+        let cpu = Processor::initialize();
+        assert_eq!(cpu.ram[0x000], FONT_STANDARD[0x000]);
+        assert_eq!(cpu.ram[0x00a], FONT_STANDARD[0x00a]);
+        assert_eq!(cpu.ram[0x013], FONT_STANDARD[0x013]);
+        assert_eq!(cpu.ram[0x03a], FONT_STANDARD[0x03a]);
     }
 }
