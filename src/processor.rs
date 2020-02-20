@@ -305,7 +305,10 @@ impl Processor {
         for row in 0..n as usize {
             let data = self.ram[self.idxr as usize + row] as usize;
             for col in 0..8 as usize {
-                let vram_pixel = self.vram[x + col + ((y + row) * WIDTH)];
+                let vram_pixel = self.vram[
+                    ((x + col) % WIDTH) + // wrap x direction 
+                    (((y + row) % HEIGHT) * WIDTH) // wrap y direction
+                ];
                 let new_pixel = data >> (7 - col) & 0x01;
                 // Check for collision
                 if new_pixel > 0 && vram_pixel > 0 {
