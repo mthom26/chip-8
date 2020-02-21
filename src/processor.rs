@@ -1,13 +1,10 @@
 #![allow(dead_code)]
 use rand::Rng;
 
-use crate::font::FONT_STANDARD;
+use crate::{font::FONT_STANDARD, HEIGHT, WIDTH};
 
 const RAM: usize = 4096;
 const VRAM: usize = 2048;
-
-const WIDTH: usize = 64;
-const HEIGHT: usize = 32;
 
 pub struct Processor {
     // Registers and indexes

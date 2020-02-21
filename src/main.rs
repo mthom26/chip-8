@@ -1,22 +1,54 @@
+use winit::{
+    dpi::LogicalSize,
+    event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::WindowBuilder,
+};
+
 mod processor;
 use processor::Processor;
 mod font;
 
+pub const WIDTH: usize = 64;
+pub const HEIGHT: usize = 32;
+const PIXEL_SCALE: usize = 10;
+
 fn main() {
     // Initialize graphics context
     // Initialize input handling
+    let event_loop = EventLoop::new();
+
+    let window = WindowBuilder::new()
+        .with_title("Chip-8 Emulator")
+        .with_inner_size(LogicalSize::new(
+            (WIDTH * PIXEL_SCALE) as f64,
+            (HEIGHT * PIXEL_SCALE) as f64,
+        ))
+        .build(&event_loop)
+        .expect("Could not create window.");
 
     // Initialize Chip-8 instance
     let mut chip8 = Processor::initialize();
     // Load a program
 
-    let mut running = false;
+    event_loop.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Poll;
 
-    while running {
-        // Run chip8 cycle
-
-        // If chip8 drawflag is set draw graphics
-
-        // Set chip8 keys
-    }
+        match event {
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            virtual_keycode: Some(VirtualKeyCode::Escape),
+                            state: ElementState::Released,
+                            ..
+                        },
+                    ..
+                } => *control_flow = ControlFlow::Exit,
+                _ => (),
+            },
+            _ => (),
+        }
+    });
 }
