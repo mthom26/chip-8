@@ -7,7 +7,9 @@ use winit::{
 
 mod processor;
 use processor::Processor;
+mod drivers;
 mod font;
+use drivers::input::get_keys;
 
 pub const WIDTH: usize = 64;
 pub const HEIGHT: usize = 32;
@@ -31,6 +33,8 @@ fn main() {
     let mut chip8 = Processor::initialize();
     // Load a program
 
+    let mut keys = [0; 16];
+
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
 
@@ -46,6 +50,15 @@ fn main() {
                         },
                     ..
                 } => *control_flow = ControlFlow::Exit,
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            virtual_keycode,
+                            state,
+                            ..
+                        },
+                    ..
+                } => get_keys(virtual_keycode, state, &mut keys),
                 _ => (),
             },
             _ => (),
