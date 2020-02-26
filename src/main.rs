@@ -9,15 +9,13 @@ mod processor;
 use processor::Processor;
 mod drivers;
 mod font;
-use drivers::input::get_keys;
+use drivers::{display::Display, input::get_keys};
 
 pub const WIDTH: usize = 64;
 pub const HEIGHT: usize = 32;
-const PIXEL_SCALE: usize = 10;
+pub const PIXEL_SCALE: usize = 10;
 
 fn main() {
-    // Initialize graphics context
-    // Initialize input handling
     let event_loop = EventLoop::new();
 
     let window = WindowBuilder::new()
@@ -29,9 +27,9 @@ fn main() {
         .build(&event_loop)
         .expect("Could not create window.");
 
-    // Initialize Chip-8 instance
+    let mut display = Display::new(&window);
+
     let mut chip8 = Processor::initialize();
-    // Load a program
 
     let mut keys = [0; 16];
 
@@ -61,7 +59,12 @@ fn main() {
                 } => get_keys(virtual_keycode, state, &mut keys),
                 _ => (),
             },
+            Event::RedrawRequested(_) => {
+                display.draw([0; 2048]);
+            }
             _ => (),
         }
+
+        // window.request_redraw();
     });
 }
